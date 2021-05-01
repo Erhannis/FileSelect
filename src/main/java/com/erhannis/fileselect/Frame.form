@@ -38,6 +38,7 @@
   </NonVisualComponents>
   <Properties>
     <Property name="defaultCloseOperation" type="int" value="3"/>
+    <Property name="title" type="java.lang.String" value="FileSelect"/>
   </Properties>
   <SyntheticProperties>
     <SyntheticProperty name="menuBar" type="java.lang.String" value="jMenuBar1"/>
@@ -81,6 +82,7 @@
             <Property name="model" type="javax.swing.tree.TreeModel" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
               <Connection code="treeModel        " type="code"/>
             </Property>
+            <Property name="toolTipText" type="java.lang.String" value="green nodes are included in export.  space/enter to switch state.  hold shift to reverse direction."/>
           </Properties>
           <Events>
             <EventHandler event="keyTyped" listener="java.awt.event.KeyListener" parameters="java.awt.event.KeyEvent" handler="jTree1KeyTyped"/>

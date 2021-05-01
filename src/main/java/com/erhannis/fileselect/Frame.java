@@ -7,10 +7,12 @@ package com.erhannis.fileselect;
 
 import java.awt.event.KeyEvent;
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -28,6 +30,7 @@ import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeCellRenderer;
 import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreeNode;
+import javax.swing.tree.TreeSelectionModel;
 
 /**
  *
@@ -42,6 +45,7 @@ public class Frame extends javax.swing.JFrame {
      */
     public Frame() {
         initComponents();
+        jTree1.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
     }
 
     /**
@@ -61,8 +65,10 @@ public class Frame extends javax.swing.JFrame {
         miSave = new javax.swing.JMenuItem();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setTitle("FileSelect");
 
         jTree1.setModel(treeModel        );
+        jTree1.setToolTipText("green nodes are included in export.  space/enter to switch state.  hold shift to reverse direction.");
         jTree1.addKeyListener(new java.awt.event.KeyAdapter() {
             public void keyTyped(java.awt.event.KeyEvent evt) {
                 jTree1KeyTyped(evt);
@@ -117,7 +123,7 @@ public class Frame extends javax.swing.JFrame {
 
     private void jTree1KeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_jTree1KeyPressed
         if (evt.getKeyCode() == KeyEvent.VK_ENTER || evt.getKeyCode() == KeyEvent.VK_SPACE) {
-            treeItemAction();
+            treeItemAction(evt.isShiftDown());
         }
     }//GEN-LAST:event_jTree1KeyPressed
 
@@ -321,8 +327,45 @@ public class Frame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_miLoadActionPerformed
 
+    private static void aggregateLines(DefaultMutableTreeNode root, List<byte[]> lines) {
+        Selection<byte[], EnumYNU> obj = (Selection<byte[], EnumYNU>)root.getUserObject();
+        if (obj.state == EnumYNU.Y) {
+            lines.add(obj.val);
+        }
+        for (DefaultMutableTreeNode child : Frame.<DefaultMutableTreeNode>iter(root.children())) {
+            aggregateLines(child, lines);
+        }
+    }
+    
     private void miSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_miSaveActionPerformed
-        // TODO add your handling code here:
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            BufferedOutputStream bos = null;
+            try {
+                File f = chooser.getSelectedFile();
+                ArrayList<byte[]> lines = new ArrayList<>();
+                aggregateLines(root, lines);
+                bos = new BufferedOutputStream(new FileOutputStream(f));
+                boolean first = true;
+                for (byte[] line : lines) {
+                    if (!first) {
+                        bos.write(0x0A);
+                    }
+                    bos.write(line);
+                    first = false;
+                }
+                bos.flush();
+            } catch (FileNotFoundException ex) {
+                Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (IOException ex) {
+                Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                try {
+                    bos.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
     }//GEN-LAST:event_miSaveActionPerformed
 
     //TODO Export
@@ -331,11 +374,11 @@ public class Frame extends javax.swing.JFrame {
         return val;
     }
     
-    private void treeItemAction() {
+    private void treeItemAction(boolean reverse) {
         DefaultMutableTreeNode node = (DefaultMutableTreeNode) jTree1.getSelectionPath().getLastPathComponent();
         Selection<String, EnumYNU> obj = (Selection<String, EnumYNU>) node.getUserObject();
         //c.getDeclaredMethod("values").invoke(null)
-        obj.state = EnumYNU.values()[(obj.state.ordinal()+1) % EnumYNU.values().length];
+        obj.state = EnumYNU.values()[(obj.state.ordinal() + (reverse ? -1+EnumYNU.values().length : 1)) % EnumYNU.values().length];
         jTree1.repaint();
     }
     
