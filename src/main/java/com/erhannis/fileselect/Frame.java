@@ -180,7 +180,7 @@ public class Frame extends javax.swing.JFrame {
     }
     
     private static boolean isParent(byte[] child, byte[] parent) {
-        if (parent[parent.length-1] != 0x2F) {
+        if (parent.length == 0 || parent[parent.length-1] != 0x2F) {
             if (!startsWith(child, parent, (byte)0x2F)) {
                 return false;
             }
@@ -190,6 +190,30 @@ public class Frame extends javax.swing.JFrame {
             }
         }
         return true;
+    }
+
+    private static boolean isDirectParent(byte[] child, byte[] parent) {
+        if (parent.length == 0 || parent[parent.length-1] != 0x2F) {
+            if (!startsWith(child, parent, (byte)0x2F)) {
+                return false;
+            }
+            for (int i = parent.length+1; i < child.length; i++) {
+                if (child[i] == 0x2F) {
+                    return false;
+                }
+            }
+            return true;
+        } else {
+            if (!startsWith(child, parent)) {
+                return false;
+            }
+            for (int i = parent.length; i < child.length; i++) {
+                if (child[i] == 0x2F) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
     
     private static String getString(Object o) {
@@ -241,22 +265,28 @@ public class Frame extends javax.swing.JFrame {
             return "n["+value+"]";
         }
     }
-        
+    
     private static Node<byte[]> findParent(Node<byte[]> child, Node<byte[]> root) {
-        Node<byte[]> parent = null;
+        if (isDirectParent(child.value, root.value)) {
+            return root;
+        }
         for (Node<byte[]> candidate : root.children) {
             if (isParent(child.value, candidate.value)) {
-                if (parent == null) {
-                    parent = findParent(child, candidate);
-                } else {
-                    System.err.println("multiple parents: " + child.value + " -> " + parent.value + ", " + candidate.value);
-                }
+                return findParent(child, candidate);
             }
         }
-        if (parent != null) {
-            return parent;
-        }
         return root;
+    }
+    
+    // This makes me a little nervous, but I THINK it's still correct
+    private Node<byte[]> cachedParent;
+    private Node<byte[]> findParentCached(Node<byte[]> child, Node<byte[]> root) {
+        if (cachedParent != null && isParent(child.value, cachedParent.value)) {
+            cachedParent = findParent(child, cachedParent);
+        } else {
+            cachedParent = findParent(child, root);
+        }
+        return cachedParent;
     }
     
     private static <T> Iterable<T> iter(Enumeration e) {
@@ -308,11 +338,20 @@ public class Frame extends javax.swing.JFrame {
                 LineReader lr = new LineReader(f);
                 Node<byte[]> r = new Node<>(null, new byte[]{});
                 int i = 0;
+                int j = 0;
+                long time = System.currentTimeMillis();
                 while (lr.hasLine()) {
                     byte[] line = lr.getLine();
                     i++;
+                    j++;
+                    long time2 = System.currentTimeMillis();
+                    if (time2 - time > 1000) {
+                        System.out.println("lines per second: " + j + " (" + i + ")");
+                        j = 0;
+                        time = time2;
+                    }
                     Node<byte[]> child = new Node<byte[]>(null, line);
-                    Node<byte[]> parent = findParent(child, r);
+                    Node<byte[]> parent = findParentCached(child, r);
                     parent.addNode(child);
                 }
                 DefaultMutableTreeNode dmtn = r.toTreeNode();
