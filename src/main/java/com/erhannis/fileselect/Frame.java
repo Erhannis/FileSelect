@@ -68,7 +68,7 @@ public class Frame extends javax.swing.JFrame {
         setTitle("FileSelect");
 
         jTree1.setModel(treeModel        );
-        jTree1.setToolTipText("green nodes are included in export.  space/enter to switch state.  hold shift to reverse direction.");
+        jTree1.setToolTipText("<html>load file list as from `find`.<br/>green nodes are included in export.<br/>space/enter to switch state.<br/>hold shift to reverse direction.</html>");
         jTree1.addKeyListener(new java.awt.event.KeyAdapter() {
             public void keyTyped(java.awt.event.KeyEvent evt) {
                 jTree1KeyTyped(evt);
