@@ -18,9 +18,13 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JComponent;
@@ -37,7 +41,7 @@ import javax.swing.tree.TreeSelectionModel;
  * @author erhannis
  */
 public class Frame extends javax.swing.JFrame {
-    private DefaultMutableTreeNode root = new DefaultMutableTreeNode(new Selection<byte[], EnumYNU>(new byte[0], "/", EnumYNU.U));
+    private DefaultMutableTreeNode root = new DefaultMutableTreeNode(new Selection<byte[], EnumYNUM>(new byte[0], "", EnumYNUM.U));
     private TreeModel treeModel = new DefaultTreeModel(root);
     
     /**
@@ -63,6 +67,8 @@ public class Frame extends javax.swing.JFrame {
         jMenu1 = new javax.swing.JMenu();
         miLoad = new javax.swing.JMenuItem();
         miSave = new javax.swing.JMenuItem();
+        miLoadState = new javax.swing.JMenuItem();
+        miSaveState = new javax.swing.JMenuItem();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("FileSelect");
@@ -98,6 +104,22 @@ public class Frame extends javax.swing.JFrame {
             }
         });
         jMenu1.add(miSave);
+
+        miLoadState.setText("Load state...");
+        miLoadState.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                miLoadStateActionPerformed(evt);
+            }
+        });
+        jMenu1.add(miLoadState);
+
+        miSaveState.setText("Save state...");
+        miSaveState.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                miSaveStateActionPerformed(evt);
+            }
+        });
+        jMenu1.add(miSaveState);
 
         jMenuBar1.add(jMenu1);
 
@@ -253,13 +275,21 @@ public class Frame extends javax.swing.JFrame {
         }
         
         public DefaultMutableTreeNode toTreeNode() {
-            DefaultMutableTreeNode dmtn = new DefaultMutableTreeNode(new Selection<T, EnumYNU>(this.value, getString(this.value), EnumYNU.U));
+            DefaultMutableTreeNode dmtn = new DefaultMutableTreeNode(new Selection<T, EnumYNUM>(this.value, getString(this.value), EnumYNUM.U));
             for (Node<T> child : this.children) {
                 dmtn.add(child.toTreeNode());
             }
             return dmtn;
         }
 
+        public DefaultMutableTreeNode toTreeNode(HashMap<Node<byte[]>, EnumYNUM> statuses) {
+            DefaultMutableTreeNode dmtn = new DefaultMutableTreeNode(new Selection<T, EnumYNUM>(this.value, getString(this.value), statuses.getOrDefault(this, EnumYNUM.U)));
+            for (Node<T> child : this.children) {
+                dmtn.add(child.toTreeNode(statuses));
+            }
+            return dmtn;
+        }
+        
         @Override
         public String toString() {
             return "n["+value+"]";
@@ -367,8 +397,8 @@ public class Frame extends javax.swing.JFrame {
     }//GEN-LAST:event_miLoadActionPerformed
 
     private static void aggregateLines(DefaultMutableTreeNode root, List<byte[]> lines) {
-        Selection<byte[], EnumYNU> obj = (Selection<byte[], EnumYNU>)root.getUserObject();
-        if (obj.state == EnumYNU.Y) {
+        Selection<byte[], EnumYNUM> obj = (Selection<byte[], EnumYNUM>)root.getUserObject();
+        if (obj.state == EnumYNUM.Y) {
             lines.add(obj.val);
         }
         for (DefaultMutableTreeNode child : Frame.<DefaultMutableTreeNode>iter(root.children())) {
@@ -407,6 +437,95 @@ public class Frame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_miSaveActionPerformed
 
+    private void miLoadStateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_miLoadStateActionPerformed
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try {
+                File f = chooser.getSelectedFile();
+                //List<String> lines = Files.readAllLines(f.toPath(), Charset.forName("windows-1252"));
+                LineReader lr = new LineReader(f);
+                Node<byte[]> r = new Node<>(null, new byte[]{});
+                int i = 0;
+                int j = 0;
+                long time = System.currentTimeMillis();
+                HashMap<Node<byte[]>, EnumYNUM> statuses = new HashMap<>();
+                while (lr.hasLine()) {
+                    byte[] line = lr.getLine();
+                    EnumYNUM status = EnumYNUM.U;
+                    if (line.length > 0) {
+                        status = EnumYNUM.values()[line[0]-'0']; // Bit of a hack
+                        line = Arrays.copyOfRange(line, 1, line.length);
+                    }
+                    i++;
+                    j++;
+                    long time2 = System.currentTimeMillis();
+                    if (time2 - time > 1000) {
+                        System.out.println("lines per second: " + j + " (" + i + ")");
+                        j = 0;
+                        time = time2;
+                    }
+                    Node<byte[]> child = new Node<byte[]>(null, line);
+                    statuses.put(child, status);
+                    Node<byte[]> parent = findParentCached(child, r);
+                    parent.addNode(child);
+                }
+                DefaultMutableTreeNode dmtn = r.toTreeNode(statuses);
+                root.removeAllChildren();
+                for (DefaultMutableTreeNode child : Frame.<DefaultMutableTreeNode>iter(dmtn.children())) {
+                    root.add(child);
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            jTree1.repaint();
+        }
+    }//GEN-LAST:event_miLoadStateActionPerformed
+
+    private static void aggregateLinesState(DefaultMutableTreeNode root, BiConsumer<byte[], EnumYNUM> callback) {
+        Selection<byte[], EnumYNUM> obj = (Selection<byte[], EnumYNUM>)root.getUserObject();
+        callback.accept(obj.val, obj.state);
+        for (DefaultMutableTreeNode child : Frame.<DefaultMutableTreeNode>iter(root.children())) {
+            aggregateLinesState(child, callback);
+        }
+    }
+
+    private void miSaveStateActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_miSaveStateActionPerformed
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            BufferedOutputStream bos = null;
+            try {
+                File f = chooser.getSelectedFile();
+                bos = new BufferedOutputStream(new FileOutputStream(f));
+                final BufferedOutputStream bos0 = bos;
+                boolean[] first = {true};
+                BiConsumer<byte[], EnumYNUM> callback = (line, state) -> {
+                    try {
+                        if (!first[0]) {
+                            bos0.write(0x0A);
+                        }
+                        bos0.write('0'+state.ordinal());
+                        bos0.write(line);
+                        first[0] = false;
+                    } catch (Throwable t) {
+                        throw new RuntimeException(t);
+                    }
+                };
+                for (DefaultMutableTreeNode child : Frame.<DefaultMutableTreeNode>iter(root.children())) {
+                    aggregateLinesState(child, callback);
+                }
+                bos.flush();
+            } catch (FileNotFoundException ex) {
+                Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (IOException ex) {
+                Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                try {
+                    bos.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(Frame.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+    }//GEN-LAST:event_miSaveStateActionPerformed
+
     //TODO Export
     public static <E extends Enum> E cycleEnum(E val) {
         //val.
@@ -415,9 +534,9 @@ public class Frame extends javax.swing.JFrame {
     
     private void treeItemAction(boolean reverse) {
         DefaultMutableTreeNode node = (DefaultMutableTreeNode) jTree1.getSelectionPath().getLastPathComponent();
-        Selection<String, EnumYNU> obj = (Selection<String, EnumYNU>) node.getUserObject();
+        Selection<String, EnumYNUM> obj = (Selection<String, EnumYNUM>) node.getUserObject();
         //c.getDeclaredMethod("values").invoke(null)
-        obj.state = EnumYNU.values()[(obj.state.ordinal() + (reverse ? -1+EnumYNU.values().length : 1)) % EnumYNU.values().length];
+        obj.state = EnumYNUM.values()[(obj.state.ordinal() + (reverse ? -1+EnumYNUM.values().length : 1)) % EnumYNUM.values().length];
         jTree1.repaint();
     }
     
@@ -462,6 +581,8 @@ public class Frame extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTree jTree1;
     private javax.swing.JMenuItem miLoad;
+    private javax.swing.JMenuItem miLoadState;
     private javax.swing.JMenuItem miSave;
+    private javax.swing.JMenuItem miSaveState;
     // End of variables declaration//GEN-END:variables
 }

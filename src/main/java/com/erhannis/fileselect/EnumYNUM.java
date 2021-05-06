@@ -9,8 +9,8 @@ package com.erhannis.fileselect;
  *
  * @author erhannis
  */
-public enum EnumYNU {
-    Y, N, U;
+public enum EnumYNUM {
+    U, Y, M, N;
 
     @Override
     public String toString() {
@@ -21,6 +21,8 @@ public enum EnumYNU {
                 return "background-color: #FF8888";
             case U:
                 return "background-color: #8888FF";
+            case M:
+                return "background-color: #AAAAAA";
         }
         return "";
     }
