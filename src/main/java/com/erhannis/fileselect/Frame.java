@@ -5,6 +5,7 @@
  */
 package com.erhannis.fileselect;
 
+import com.erhannis.mathnstuff.MeUtils;
 import java.awt.event.KeyEvent;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -69,6 +71,8 @@ public class Frame extends javax.swing.JFrame {
         miSave = new javax.swing.JMenuItem();
         miLoadState = new javax.swing.JMenuItem();
         miSaveState = new javax.swing.JMenuItem();
+        jMenu2 = new javax.swing.JMenu();
+        miMark = new javax.swing.JMenuItem();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("FileSelect");
@@ -122,6 +126,19 @@ public class Frame extends javax.swing.JFrame {
         jMenu1.add(miSaveState);
 
         jMenuBar1.add(jMenu1);
+
+        jMenu2.setText("Edit");
+
+        miMark.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_F, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+        miMark.setText("Mark...");
+        miMark.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                miMarkActionPerformed(evt);
+            }
+        });
+        jMenu2.add(miMark);
+
+        jMenuBar1.add(jMenu2);
 
         setJMenuBar(jMenuBar1);
 
@@ -526,6 +543,29 @@ public class Frame extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_miSaveStateActionPerformed
 
+    private DFind.Result<EnumYNUM> result = new DFind.Result<>("", false, EnumYNUM.Y);
+    private void miMarkActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_miMarkActionPerformed
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode) jTree1.getSelectionPath().getLastPathComponent();
+        new DFind<EnumYNUM>(this, EnumYNUM.values(), result).go();
+        HashSet<DefaultMutableTreeNode> toCheck = new HashSet<>();
+        Frame.<DefaultMutableTreeNode>iter(node.children()).forEach(child -> {
+            toCheck.add(child);
+        });
+        while (!toCheck.isEmpty()) {
+            DefaultMutableTreeNode child = MeUtils.pop(toCheck);
+            Selection<String, EnumYNUM> obj = (Selection<String, EnumYNUM>) child.getUserObject();
+            if (obj.name.matches(result.regex)) {
+                obj.state = result.value;
+            }
+            if (result.recursive) {
+                Frame.<DefaultMutableTreeNode>iter(child.children()).forEach(c -> {
+                    toCheck.add(c);
+                });
+            }            
+        }
+        jTree1.repaint();
+    }//GEN-LAST:event_miMarkActionPerformed
+
     //TODO Export
     public static <E extends Enum> E cycleEnum(E val) {
         //val.
@@ -534,7 +574,7 @@ public class Frame extends javax.swing.JFrame {
     
     private void treeItemAction(boolean reverse) {
         DefaultMutableTreeNode node = (DefaultMutableTreeNode) jTree1.getSelectionPath().getLastPathComponent();
-        Selection<String, EnumYNUM> obj = (Selection<String, EnumYNUM>) node.getUserObject();
+        Selection<byte[], EnumYNUM> obj = (Selection<byte[], EnumYNUM>) node.getUserObject();
         //c.getDeclaredMethod("values").invoke(null)
         obj.state = EnumYNUM.values()[(obj.state.ordinal() + (reverse ? -1+EnumYNUM.values().length : 1)) % EnumYNUM.values().length];
         jTree1.repaint();
@@ -577,11 +617,13 @@ public class Frame extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenu jMenu1;
+    private javax.swing.JMenu jMenu2;
     private javax.swing.JMenuBar jMenuBar1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTree jTree1;
     private javax.swing.JMenuItem miLoad;
     private javax.swing.JMenuItem miLoadState;
+    private javax.swing.JMenuItem miMark;
     private javax.swing.JMenuItem miSave;
     private javax.swing.JMenuItem miSaveState;
     // End of variables declaration//GEN-END:variables
